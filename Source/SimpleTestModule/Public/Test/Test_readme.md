@@ -1,4 +1,4 @@
-# VisibilityToneCalculation usage
+# Test usage
 
 ## Blueprint
 
@@ -10,18 +10,18 @@
 
 ```cpp
 // Params struct used to pass args to our compute shader
-FVisibilityToneCalculationDispatchParams Params(1, 1, 1);
+FTestDispatchParams Params(1, 1, 1);
 
 // Fill in your input parameters here
 Params.XYZ = 123;
 
 // These are defined/used in:
-// 1. Private/VisibilityToneCalculation/VisibilityToneCalculation.cpp under BEGIN_SHADER_PARAMETER_STRUCT
-// 2. Public/VisibilityToneCalculation/VisibilityToneCalculation.h under FVisibilityToneCalculationDispatchParams
-// 3. Private/VisibilityToneCalculation/VisibilityToneCalculation.cpp under FVisibilityToneCalculationInterface::DispatchRenderThread
+// 1. Private/Test/Test.cpp under BEGIN_SHADER_PARAMETER_STRUCT
+// 2. Public/Test/Test.h under FTestDispatchParams
+// 3. Private/Test/Test.cpp under FTestInterface::DispatchRenderThread
 
 // Executes the compute shader and blocks until complete. You can place outputs in the params struct
-FVisibilityToneCalculationInterface::Dispatch(Params);
+FTestInterface::Dispatch(Params);
 ```
 
 Feel free to delete this file

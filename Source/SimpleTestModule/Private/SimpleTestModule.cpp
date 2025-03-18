@@ -1,6 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "VisibilityToneCalculationModule.h"
+#include "SimpleTestModule.h"
 
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
@@ -12,17 +12,17 @@
 #include "Runtime/Core/Public/Modules/ModuleManager.h"
 #include "Interfaces/IPluginManager.h"
 
-#define LOCTEXT_NAMESPACE "FVisibilityToneCalculationModule"
+#define LOCTEXT_NAMESPACE "FSimpleTestModule"
 
-void FVisibilityToneCalculationModule::StartupModule()
+void FSimpleTestModule::StartupModule()
 {
 	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
 
-	FString PluginShaderDir = FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("VisibilityToneCalculation"))->GetBaseDir(), TEXT("Shaders/VisibilityToneCalculationModule/Private"));
-	AddShaderSourceDirectoryMapping(TEXT("/VisibilityToneCalculationModuleShaders"), PluginShaderDir);
+	FString PluginShaderDir = FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("VisibilityToneCalculation"))->GetBaseDir(), TEXT("Shaders/SimpleTestModule/Private"));
+	AddShaderSourceDirectoryMapping(TEXT("/SimpleTestModuleShaders"), PluginShaderDir);
 }
 
-void FVisibilityToneCalculationModule::ShutdownModule()
+void FSimpleTestModule::ShutdownModule()
 {
 	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
 	// we call this function before unloading the module.
@@ -30,4 +30,4 @@ void FVisibilityToneCalculationModule::ShutdownModule()
 
 #undef LOCTEXT_NAMESPACE
 	
-IMPLEMENT_MODULE(FVisibilityToneCalculationModule, VisibilityToneCalculation)
+IMPLEMENT_MODULE(FSimpleTestModule, VisibilityToneCalculation)

@@ -1,10 +1,10 @@
 using UnrealBuildTool; 
 
-public class VisibilityToneCalculationModule: ModuleRules 
+public class SimpleTestModule: ModuleRules 
 
 { 
 
-	public VisibilityToneCalculationModule(ReadOnlyTargetRules Target) : base(Target) 
+	public SimpleTestModule(ReadOnlyTargetRules Target) : base(Target) 
 
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
@@ -12,7 +12,7 @@ public class VisibilityToneCalculationModule: ModuleRules
 		PrivateIncludePaths.AddRange(new string[] 
 		{
 			"Runtime/Renderer/Private",
-			"VisibilityToneCalculationModule/Private"
+			"SimpleTestModule/Private"
 		});
 		if (Target.bBuildEditor == true)
 		{

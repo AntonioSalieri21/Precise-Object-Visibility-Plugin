@@ -1,5 +1,5 @@
-#include "VisibilityToneCalculation.h"
-#include "VisibilityToneCalculationModule/Public/VisibilityToneCalculation/VisibilityToneCalculation.h"
+#include "Test.h"
+#include "SimpleTestModule/Public/Test/Test.h"
 #include "PixelShaderUtils.h"
 #include "MeshPassProcessor.inl"
 #include "StaticMeshResources.h"
@@ -12,24 +12,27 @@
 #include "RHIGPUReadback.h"
 #include "MeshPassUtils.h"
 #include "MaterialShader.h"
+#include "RHI.h"
 
-DECLARE_STATS_GROUP(TEXT("VisibilityToneCalculation"), STATGROUP_VisibilityToneCalculation, STATCAT_Advanced);
-DECLARE_CYCLE_STAT(TEXT("VisibilityToneCalculation Execute"), STAT_VisibilityToneCalculation_Execute, STATGROUP_VisibilityToneCalculation);
+
+DECLARE_STATS_GROUP(TEXT("Test"), STATGROUP_Test, STATCAT_Advanced);
+DECLARE_CYCLE_STAT(TEXT("Test Execute"), STAT_Test_Execute, STATGROUP_Test);
 
 // This class carries our parameter declarations and acts as the bridge between cpp and HLSL.
-class VISIBILITYTONECALCULATIONMODULE_API FVisibilityToneCalculation: public FGlobalShader
+class SIMPLETESTMODULE_API FTest: public FGlobalShader
 {
 public:
 	
-	DECLARE_GLOBAL_SHADER(FVisibilityToneCalculation);
-	SHADER_USE_PARAMETER_STRUCT(FVisibilityToneCalculation, FGlobalShader);
+	DECLARE_GLOBAL_SHADER(FTest);
+	// Generates a constructor which will connect shader to register FParameter of input values
+	SHADER_USE_PARAMETER_STRUCT(FTest, FGlobalShader);
 	
 	
-	class FVisibilityToneCalculation_Perm_TEST : SHADER_PERMUTATION_INT("TEST", 1);
+	class FTest_Perm_TEST : SHADER_PERMUTATION_INT("TEST", 1);
 	using FPermutationDomain = TShaderPermutationDomain<
-		FVisibilityToneCalculation_Perm_TEST
+		FTest_Perm_TEST
 	>;
-
+	// Makros to generate C++ struct of input values into shader, and connect it to RDG
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
 		/*
 		* Here's where you define one or more of the input parameters for your shader.
@@ -53,21 +56,27 @@ public:
 
 		// SHADER_PARAMETER_STRUCT_REF(FMyCustomStruct, MyCustomStruct)
 
-		
-		SHADER_PARAMETER_RDG_BUFFER_SRV(Buffer<int>, Input)
+		// Try to pass StencilRender here
+		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, InputTexture)
 		SHADER_PARAMETER_RDG_BUFFER_UAV(RWBuffer<int>, Output)
 		
 
 	END_SHADER_PARAMETER_STRUCT()
 
 public:
+	// Shaders may have permutations (variations) based on its settings
+	// F.e we can change what features are used: tesselation, translucency
+	// Also it allows for changing platforms and other stuff automatically by the engine, instead of writing billion variations of the same shader
+	// This function specifies what permutations to compile
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
+		// This line gets specific permutation from settings of FGlobalShaderPermutationParameters
 		const FPermutationDomain PermutationVector(Parameters.PermutationId);
 		
+		// Normally this function filters out unwanted permutations, but in this basic case it allows to compile any perm
 		return true;
 	}
-
+	// Allows to set compiler flags, define constants and enable specific features
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Parameters, OutEnvironment);
@@ -83,9 +92,9 @@ public:
 		/*
 		* These defines are used in the thread count section of our shader
 		*/
-		OutEnvironment.SetDefine(TEXT("THREADS_X"), NUM_THREADS_VisibilityToneCalculation_X);
-		OutEnvironment.SetDefine(TEXT("THREADS_Y"), NUM_THREADS_VisibilityToneCalculation_Y);
-		OutEnvironment.SetDefine(TEXT("THREADS_Z"), NUM_THREADS_VisibilityToneCalculation_Z);
+		OutEnvironment.SetDefine(TEXT("THREADS_X"), NUM_THREADS_Test_X);
+		OutEnvironment.SetDefine(TEXT("THREADS_Y"), NUM_THREADS_Test_Y);
+		OutEnvironment.SetDefine(TEXT("THREADS_Z"), NUM_THREADS_Test_Z);
 
 		// This shader must support typed UAV load and we are testing if it is supported at runtime using RHIIsTypedUAVLoadSupported
 		//OutEnvironment.CompilerFlags.Add(CFLAG_AllowTypedUAVLoads);
@@ -97,48 +106,106 @@ private:
 
 // This will tell the engine to create the shader and where the shader entry point is.
 //                            ShaderType                            ShaderPath                     Shader function name    Type
-IMPLEMENT_GLOBAL_SHADER(FVisibilityToneCalculation, "/VisibilityToneCalculationModuleShaders/VisibilityToneCalculation/VisibilityToneCalculation.usf", "VisibilityToneCalculation", SF_Compute);
+IMPLEMENT_GLOBAL_SHADER(FTest, "/SimpleTestModuleShaders/Test/Test.usf", "Test", SF_Compute);
 
-void FVisibilityToneCalculationInterface::DispatchRenderThread(FRHICommandListImmediate& RHICmdList, FVisibilityToneCalculationDispatchParams Params, TFunction<void(int OutputVal)> AsyncCallback) {
+// Here we prepare Pass Parameters to a shader 
+void FTestInterface::DispatchRenderThread(FRHICommandListImmediate& RHICmdList, FTestDispatchParams Params, TFunction<void(int OutputVal)> AsyncCallback) {
 	FRDGBuilder GraphBuilder(RHICmdList);
 
 	{
-		SCOPE_CYCLE_COUNTER(STAT_VisibilityToneCalculation_Execute);
-		DECLARE_GPU_STAT(VisibilityToneCalculation)
-		RDG_EVENT_SCOPE(GraphBuilder, "VisibilityToneCalculation");
-		RDG_GPU_STAT_SCOPE(GraphBuilder, VisibilityToneCalculation);
 		
-		typename FVisibilityToneCalculation::FPermutationDomain PermutationVector;
+		SCOPE_CYCLE_COUNTER(STAT_Test_Execute);
+		DECLARE_GPU_STAT(Test)
+		RDG_EVENT_SCOPE(GraphBuilder, "Test");
+		RDG_GPU_STAT_SCOPE(GraphBuilder, Test);
+		
+
+		typename FTest::FPermutationDomain PermutationVector;
 		
 		// Add any static permutation options here
-		// PermutationVector.Set<FVisibilityToneCalculation::FMyPermutationName>(12345);
+		// PermutationVector.Set<FTest::FMyPermutationName>(12345);
 
-		TShaderMapRef<FVisibilityToneCalculation> ComputeShader(GetGlobalShaderMap(GMaxRHIFeatureLevel), PermutationVector);
+		TShaderMapRef<FTest> ComputeShader(GetGlobalShaderMap(GMaxRHIFeatureLevel), PermutationVector);
 		
-
+		UE_LOG(LogTemp, Warning, TEXT("Check validity of a shader."));
 		bool bIsShaderValid = ComputeShader.IsValid();
 
-		if (bIsShaderValid) {
-			FVisibilityToneCalculation::FParameters* PassParameters = GraphBuilder.AllocParameters<FVisibilityToneCalculation::FParameters>();
+		if (bIsShaderValid) 
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Shader is valid."));
+			// Init pass parameters to a shader
 
+			FTest::FParameters* PassParameters = GraphBuilder.AllocParameters<FTest::FParameters>();
+
+			if (!Params.InputTexture)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("InputTexture is null."));
+				return;
+			}
+			// Maybe it wrongly reads this poi
+			UTextureRenderTarget2D* InputRT = Params.InputTexture;
+			if (!InputRT)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("InputTexture is null."));
+				return;
+			}
+			const FTextureRenderTargetResource* RTResource = InputRT->GetRenderTargetResource();
+			if (!RTResource)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("RTResource is null."));
+				return;
+			}
+
+			FRHITexture* InputTextureRHI = RTResource->GetRenderTargetTexture();
+			if (!InputTextureRHI)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("InputTextureRHI is null."));
+				return;
+			}
+
+			FSceneRenderTargetItem RenderTargetItem;
+			RenderTargetItem.TargetableTexture = InputTextureRHI;
+			RenderTargetItem.ShaderResourceTexture = InputTextureRHI;
+
+			FPooledRenderTargetDesc RenderTargetDesc = FPooledRenderTargetDesc::Create2DDesc(
+				RTResource->GetSizeXY(),        // Texture resolution 
+				InputTextureRHI->GetFormat(),             // Pixel format 
+				FClearValueBinding::Black,                // Initial clear value
+				TexCreate_None,                          
+				TexCreate_RenderTargetable |              // Can be used as a render target
+				TexCreate_ShaderResource |                // Can be sampled in shaders
+				TexCreate_UAV,                            // Can be written via UAV (compute shaders)
+				false                                     
+			);
+			TRefCountPtr<IPooledRenderTarget> PooledRenderTarget;
+			GRenderTargetPool.CreateUntrackedElement(
+				RenderTargetDesc,       
+				PooledRenderTarget,      
+				RenderTargetItem         // Links to existing RenderTargetRHI
+			);
+
+			FRDGTextureRef RDGInputTexture =
+				GraphBuilder.RegisterExternalTexture(PooledRenderTarget, TEXT("InputTexture"));
+
+			PassParameters->InputTexture = RDGInputTexture;
+			UE_LOG(LogTemp, Warning, TEXT("Put RDGInputTexture into PassParameters"));
 			
-			const void* RawData = (void*)Params.Input;
-			int NumInputs = 2;
-			int InputSize = sizeof(int);
-			FRDGBufferRef InputBuffer = CreateUploadBuffer(GraphBuilder, TEXT("InputBuffer"), InputSize, NumInputs, RawData, InputSize * NumInputs);
-
-			PassParameters->Input = GraphBuilder.CreateSRV(FRDGBufferSRVDesc(InputBuffer, PF_R32_SINT));
-
 			FRDGBufferRef OutputBuffer = GraphBuilder.CreateBuffer(
 				FRDGBufferDesc::CreateBufferDesc(sizeof(int32), 1),
 				TEXT("OutputBuffer"));
-
+			// UAV - unordered access view
 			PassParameters->Output = GraphBuilder.CreateUAV(FRDGBufferUAVDesc(OutputBuffer, PF_R32_SINT));
-			
-
-			auto GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(Params.X, Params.Y, Params.Z), FComputeShaderUtils::kGolden2DGroupSize);
+			AddClearUAVPass(GraphBuilder, PassParameters->Output, 0);
+			//auto GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(Params.X, Params.Y, Params.Z), FComputeShaderUtils::kGolden2DGroupSize);
+			FIntPoint TextureSize = RDGInputTexture->Desc.Extent;
+			FIntVector GroupCount(
+				FMath::DivideAndRoundUp(TextureSize.X, 32),
+				FMath::DivideAndRoundUp(TextureSize.Y, 32),
+				1
+			);
+			// Binding of pass parameters to RDG, so it will automatically send data to shader
 			GraphBuilder.AddPass(
-				RDG_EVENT_NAME("ExecuteVisibilityToneCalculation"),
+				RDG_EVENT_NAME("ExecuteTest"),
 				PassParameters,
 				ERDGPassFlags::AsyncCompute,
 				[&PassParameters, ComputeShader, GroupCount](FRHIComputeCommandList& RHICmdList)
@@ -146,8 +213,8 @@ void FVisibilityToneCalculationInterface::DispatchRenderThread(FRHICommandListIm
 				FComputeShaderUtils::Dispatch(RHICmdList, ComputeShader, *PassParameters, GroupCount);
 			});
 
-			
-			FRHIGPUBufferReadback* GPUBufferReadback = new FRHIGPUBufferReadback(TEXT("ExecuteVisibilityToneCalculationOutput"));
+			// GPU Readback
+			FRHIGPUBufferReadback* GPUBufferReadback = new FRHIGPUBufferReadback(TEXT("ExecuteTestOutput"));
 			AddEnqueueCopyPass(GraphBuilder, GPUBufferReadback, OutputBuffer, 0u);
 
 			auto RunnerFunc = [GPUBufferReadback, AsyncCallback](auto&& RunnerFunc) -> void {

@@ -1,0 +1,26 @@
+#include "/Engine/Public/Platform.ush"
+
+// Declare parameters matching the C++ RDG parameter struct without register assignments
+Texture2D<float4> InputTexture;
+RWBuffer<int> Output;
+
+[numthreads(32, 32, 1)]
+void Test(uint3 DispatchThreadId : SV_DispatchThreadID, uint GroupIndex : SV_GroupIndex)
+{
+    uint width, height;
+    InputTexture.GetDimensions(width, height);
+
+    if (DispatchThreadId.x >= width || DispatchThreadId.y >= height)
+        return;
+
+    float4 colorData = InputTexture.Load(int3(DispatchThreadId.xy, 0));
+    float3 color = colorData.rgb;
+
+    float threshold = 0.9;
+    bool isWhite = (color.r > threshold && color.g > threshold && color.b > threshold);
+
+    if (isWhite)
+    {
+        InterlockedAdd(Output[0], 1);
+    }
+}

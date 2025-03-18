@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "VisibilityToneCalculationModule/Public/VisibilityToneCalculationModule.h"
+#include "SimpleTestModule/Public/SimpleTestModule.h"
 #include "MeshPassProcessor.h"
 #include "RHICommandList.h"
 #include "RenderGraphBuilder.h"
@@ -25,6 +25,8 @@
 #include "RenderGraphResources.h"
 #include "Runtime/Engine/Classes/Engine/TextureRenderTarget2D.h"
 
-#define NUM_THREADS_VisibilityToneCalculation_X 1
-#define NUM_THREADS_VisibilityToneCalculation_Y 1
-#define NUM_THREADS_VisibilityToneCalculation_Z 1
+// For setting up groups
+
+#define NUM_THREADS_Test_X 32
+#define NUM_THREADS_Test_Y 32
+#define NUM_THREADS_Test_Z 1

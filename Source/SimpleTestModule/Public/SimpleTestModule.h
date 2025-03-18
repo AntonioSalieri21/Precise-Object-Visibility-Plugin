@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
-class FVisibilityToneCalculationModule : public IModuleInterface
+class FSimpleTestModule : public IModuleInterface
 {
 public:
 

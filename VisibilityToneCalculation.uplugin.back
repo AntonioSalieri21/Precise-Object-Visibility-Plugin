@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "VisibilityToneCalculation",
+	"Description": "Precise-Object-Visibility-Plugin",
+	"Category": "Other",
+	"CreatedBy": "glup",
+	"CreatedByURL": "https://github.com/AntonioSalieri21/Precise-Object-Visibility-Plugin",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "VisibilityToneCalculation",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

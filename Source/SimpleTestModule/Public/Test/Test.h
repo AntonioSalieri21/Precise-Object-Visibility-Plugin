@@ -35,7 +35,7 @@ public:
 	static void DispatchRenderThread(
 		FRHICommandListImmediate& RHICmdList,
 		FTestDispatchParams Params,
-		TFunction<void(int OutputVal)> AsyncCallback
+		TFunction<void(int OutputVal, float ObjectLuminance, float OtherLuminance)> AsyncCallback
 	);
 
 	static FRDGTextureRef RegisterRenderTarget(UTextureRenderTarget2D* RenderTarget, FRDGBuilder& GraphBuilder, string VariableName);
@@ -43,7 +43,7 @@ public:
 	// Executes shader from the game thread
 	static void DispatchGameThread(
 		FTestDispatchParams Params,
-		TFunction<void(int OutputVal)> AsyncCallback
+		TFunction<void(int OutputVal, float ObjectLuminance, float OtherLuminance)> AsyncCallback
 	)
 	{
 		ENQUEUE_RENDER_COMMAND(SceneDrawCompletion)(
@@ -56,7 +56,7 @@ public:
 	// Dispatches shader from any thread
 	static void Dispatch(
 		FTestDispatchParams Params,
-		TFunction<void(int OutputVal)> AsyncCallback
+		TFunction<void(int OutputVal, float ObjectLuminance, float OtherLuminance)> AsyncCallback
 	)
 	{
 		if (IsInRenderingThread()) {
@@ -70,8 +70,10 @@ public:
 	//static TRefCountPtr<IPooledRenderTarget> PooledRenderTarget;
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTestLibrary_AsyncExecutionCompleted, const int, Value);
-
+//DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTestLibrary_AsyncExecutionCompleted, const int, ScreenSpaceObjectSize);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnTestLibrary_AsyncExecutionCompleted, 
+	const int, ScreenSpaceObjectSize, const float, ObjectLuminance, const float, OtherLuminance
+);
 UCLASS()
 class SIMPLETESTMODULE_API UTestLibrary_AsyncExecution : public UBlueprintAsyncActionBase
 {
@@ -85,8 +87,8 @@ public:
 		if (!CameraTexture) return;
 		// Dispatch compute shader
 		FTestDispatchParams Params(1, 1, 1, InputTexture, CameraTexture);
-		FTestInterface::Dispatch(Params, [this](int OutputVal) {
-			this->Completed.Broadcast(OutputVal);
+		FTestInterface::Dispatch(Params, [this](int OutputVal, float ObjectLiminance, float OtherLuminance) {
+			this->Completed.Broadcast(OutputVal, ObjectLiminance, 1.0);
 			});
 	}
 

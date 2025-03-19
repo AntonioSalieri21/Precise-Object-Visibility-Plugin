@@ -9,6 +9,8 @@
 
 #include "Test.generated.h"
 
+using std::string;
+
 // This is NOT input data for shader struct, but Blueprint friendly struct that takes data from game thread to render thread for further processing
 // So for example we take UTextureRenderTarget2D (UObject) and transfer it to RDGTexture object, so it will be included into makro generated shader input C++ struct
 struct SIMPLETESTMODULE_API FTestDispatchParams
@@ -16,12 +18,13 @@ struct SIMPLETESTMODULE_API FTestDispatchParams
 	int X;
 	int Y;
 	int Z;
-
+	
 	UTextureRenderTarget2D* InputTexture; // Must be a RenderTarget for compute shaders
+	UTextureRenderTarget2D* CameraTexture;
 	int Output; 
 
-	FTestDispatchParams(int x, int y, int z, UTextureRenderTarget2D* InTexture)
-		: X(x), Y(y), Z(z), InputTexture(InTexture), Output(1) {
+	FTestDispatchParams(int x, int y, int z, UTextureRenderTarget2D* InTexture, UTextureRenderTarget2D* CamTexture)
+		: X(x), Y(y), Z(z), InputTexture(InTexture), CameraTexture(CamTexture), Output(1) {
 	} 
 };
 
@@ -34,6 +37,8 @@ public:
 		FTestDispatchParams Params,
 		TFunction<void(int OutputVal)> AsyncCallback
 	);
+
+	static FRDGTextureRef RegisterRenderTarget(UTextureRenderTarget2D* RenderTarget, FRDGBuilder& GraphBuilder, string VariableName);
 
 	// Executes shader from the game thread
 	static void DispatchGameThread(
@@ -77,9 +82,9 @@ public:
 	virtual void Activate() override {
 		// Ensure InputTexture is a RenderTarget
 		if (!InputTexture) return;
-
+		if (!CameraTexture) return;
 		// Dispatch compute shader
-		FTestDispatchParams Params(1, 1, 1, InputTexture);
+		FTestDispatchParams Params(1, 1, 1, InputTexture, CameraTexture);
 		FTestInterface::Dispatch(Params, [this](int OutputVal) {
 			this->Completed.Broadcast(OutputVal);
 			});
@@ -87,9 +92,11 @@ public:
 
 	// Blueprint function
 	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", Category = "ComputeShader", WorldContext = "WorldContextObject"))
-	static UTestLibrary_AsyncExecution* ExecuteBaseComputeShader(UObject* WorldContextObject, UTextureRenderTarget2D* InputTexture) {
+	static UTestLibrary_AsyncExecution* VisibilityToneCalculation(UObject* WorldContextObject, UTextureRenderTarget2D* InputTexture, 
+		UTextureRenderTarget2D* CameraTexture) {
 		UTestLibrary_AsyncExecution* Action = NewObject<UTestLibrary_AsyncExecution>();
 		Action->InputTexture = InputTexture;
+		Action->CameraTexture = CameraTexture;
 		Action->RegisterWithGameInstance(WorldContextObject);
 		return Action;
 	}
@@ -99,4 +106,5 @@ public:
 
 	// Texture input (must be a RenderTarget)
 	UTextureRenderTarget2D* InputTexture;
+	UTextureRenderTarget2D* CameraTexture;
 };

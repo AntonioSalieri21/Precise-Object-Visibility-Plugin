@@ -2,6 +2,7 @@
 
 // Declare parameters matching the C++ RDG parameter struct without register assignments
 Texture2D<float4> InputTexture;
+Texture2D<float4> CameraTexture;
 RWBuffer<int> Output;
 
 [numthreads(32, 32, 1)]

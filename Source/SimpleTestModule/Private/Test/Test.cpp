@@ -14,6 +14,7 @@
 #include "MaterialShader.h"
 #include "RHI.h"
 
+using std::string;
 
 DECLARE_STATS_GROUP(TEXT("Test"), STATGROUP_Test, STATCAT_Advanced);
 DECLARE_CYCLE_STAT(TEXT("Test Execute"), STAT_Test_Execute, STATGROUP_Test);
@@ -58,6 +59,7 @@ public:
 
 		// Try to pass StencilRender here
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, InputTexture)
+		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, CameraTexture)
 		SHADER_PARAMETER_RDG_BUFFER_UAV(RWBuffer<int>, Output)
 		
 
@@ -104,6 +106,58 @@ public:
 private:
 };
 
+
+
+FRDGTextureRef FTestInterface::RegisterRenderTarget(UTextureRenderTarget2D* RenderTarget, FRDGBuilder& GraphBuilder, string VariableName)
+{
+
+	if (!RenderTarget)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("RenderTarget is null."));
+		
+	}
+	const FTextureRenderTargetResource* RTResource = RenderTarget->GetRenderTargetResource();
+	if (!RTResource)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("RTResource is null."));
+		
+	}
+
+	FRHITexture* TextureRHI = RTResource->GetRenderTargetTexture();
+	if (!TextureRHI)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("TextureRHI is null."));
+		
+	}
+
+	FSceneRenderTargetItem RenderTargetItem;
+	RenderTargetItem.TargetableTexture = TextureRHI;
+	RenderTargetItem.ShaderResourceTexture = TextureRHI;
+
+	FPooledRenderTargetDesc RenderTargetDesc = FPooledRenderTargetDesc::Create2DDesc(
+		RTResource->GetSizeXY(),        // Texture resolution 
+		TextureRHI->GetFormat(),             // Pixel format 
+		FClearValueBinding::Black,                // Initial clear value
+		TexCreate_None,
+		TexCreate_RenderTargetable |              // Can be used as a render target
+		TexCreate_ShaderResource |                // Can be sampled in shaders
+		TexCreate_UAV,                            // Can be written via UAV (compute shaders)
+		false
+	);
+	TRefCountPtr<IPooledRenderTarget> PooledRenderTarget;
+	GRenderTargetPool.CreateUntrackedElement(
+		RenderTargetDesc,
+		PooledRenderTarget,
+		RenderTargetItem         // Links to existing RenderTargetRHI
+	);
+	FString tmp = UTF8_TO_TCHAR(VariableName.c_str());
+	FRDGTextureRef RDGInputTexture =
+		GraphBuilder.RegisterExternalTexture(PooledRenderTarget, *tmp);
+
+	return RDGInputTexture;
+
+}
+
 // This will tell the engine to create the shader and where the shader entry point is.
 //                            ShaderType                            ShaderPath                     Shader function name    Type
 IMPLEMENT_GLOBAL_SHADER(FTest, "/SimpleTestModuleShaders/Test/Test.usf", "Test", SF_Compute);
@@ -141,54 +195,16 @@ void FTestInterface::DispatchRenderThread(FRHICommandListImmediate& RHICmdList, 
 			{
 				UE_LOG(LogTemp, Warning, TEXT("InputTexture is null."));
 				return;
+
 			}
-			// Maybe it wrongly reads this poi
-			UTextureRenderTarget2D* InputRT = Params.InputTexture;
-			if (!InputRT)
-			{
-				UE_LOG(LogTemp, Warning, TEXT("InputTexture is null."));
-				return;
-			}
-			const FTextureRenderTargetResource* RTResource = InputRT->GetRenderTargetResource();
-			if (!RTResource)
-			{
-				UE_LOG(LogTemp, Warning, TEXT("RTResource is null."));
-				return;
-			}
+			FRDGTextureRef InputTextureRef = RegisterRenderTarget(Params.InputTexture, GraphBuilder, "InputTexture");
+			PassParameters->InputTexture = InputTextureRef;
+			UE_LOG(LogTemp, Warning, TEXT("Put InputTextureRef into PassParameters"));
 
-			FRHITexture* InputTextureRHI = RTResource->GetRenderTargetTexture();
-			if (!InputTextureRHI)
-			{
-				UE_LOG(LogTemp, Warning, TEXT("InputTextureRHI is null."));
-				return;
-			}
-
-			FSceneRenderTargetItem RenderTargetItem;
-			RenderTargetItem.TargetableTexture = InputTextureRHI;
-			RenderTargetItem.ShaderResourceTexture = InputTextureRHI;
-
-			FPooledRenderTargetDesc RenderTargetDesc = FPooledRenderTargetDesc::Create2DDesc(
-				RTResource->GetSizeXY(),        // Texture resolution 
-				InputTextureRHI->GetFormat(),             // Pixel format 
-				FClearValueBinding::Black,                // Initial clear value
-				TexCreate_None,                          
-				TexCreate_RenderTargetable |              // Can be used as a render target
-				TexCreate_ShaderResource |                // Can be sampled in shaders
-				TexCreate_UAV,                            // Can be written via UAV (compute shaders)
-				false                                     
-			);
-			TRefCountPtr<IPooledRenderTarget> PooledRenderTarget;
-			GRenderTargetPool.CreateUntrackedElement(
-				RenderTargetDesc,       
-				PooledRenderTarget,      
-				RenderTargetItem         // Links to existing RenderTargetRHI
-			);
-
-			FRDGTextureRef RDGInputTexture =
-				GraphBuilder.RegisterExternalTexture(PooledRenderTarget, TEXT("InputTexture"));
-
-			PassParameters->InputTexture = RDGInputTexture;
-			UE_LOG(LogTemp, Warning, TEXT("Put RDGInputTexture into PassParameters"));
+			FRDGTextureRef CameraTextureRef = RegisterRenderTarget(Params.CameraTexture, GraphBuilder, "CameraTexture");
+			PassParameters->CameraTexture = CameraTextureRef;
+			UE_LOG(LogTemp, Warning, TEXT("Put CameraTextureRef into PassParameters"));
+			
 			
 			FRDGBufferRef OutputBuffer = GraphBuilder.CreateBuffer(
 				FRDGBufferDesc::CreateBufferDesc(sizeof(int32), 1),
@@ -197,7 +213,7 @@ void FTestInterface::DispatchRenderThread(FRHICommandListImmediate& RHICmdList, 
 			PassParameters->Output = GraphBuilder.CreateUAV(FRDGBufferUAVDesc(OutputBuffer, PF_R32_SINT));
 			AddClearUAVPass(GraphBuilder, PassParameters->Output, 0);
 			//auto GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(Params.X, Params.Y, Params.Z), FComputeShaderUtils::kGolden2DGroupSize);
-			FIntPoint TextureSize = RDGInputTexture->Desc.Extent;
+			FIntPoint TextureSize = InputTextureRef->Desc.Extent;
 			FIntVector GroupCount(
 				FMath::DivideAndRoundUp(TextureSize.X, 32),
 				FMath::DivideAndRoundUp(TextureSize.Y, 32),

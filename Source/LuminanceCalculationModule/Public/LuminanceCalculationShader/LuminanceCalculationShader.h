@@ -7,7 +7,7 @@
 #include "Materials/MaterialRenderProxy.h"
 
 #include "LuminanceCalculationShader.generated.h"
-
+using std::string;
 struct LUMINANCECALCULATIONMODULE_API FLuminanceCalculationShaderDispatchParams
 {
 	int X;
@@ -17,12 +17,11 @@ struct LUMINANCECALCULATIONMODULE_API FLuminanceCalculationShaderDispatchParams
 	UTextureRenderTarget2D* RenderTarget;
 	int Output;
 	
-	
-
-	FLuminanceCalculationShaderDispatchParams(int x, int y, int z)
+	FLuminanceCalculationShaderDispatchParams(int x, int y, int z, UTextureRenderTarget2D* RenderTarget)
 		: X(x)
 		, Y(y)
 		, Z(z)
+		, RenderTarget(RenderTarget)
 	{
 	}
 };
@@ -36,7 +35,7 @@ public:
 		FLuminanceCalculationShaderDispatchParams Params,
 		TFunction<void(int OutputVal)> AsyncCallback
 	);
-
+	static FRDGTextureRef RegisterRenderTarget(UTextureRenderTarget2D* RenderTarget, FRDGBuilder& GraphBuilder, string VariableName);
 	// Executes this shader on the render thread from the game thread via EnqueueRenderThreadCommand
 	static void DispatchGameThread(
 		FLuminanceCalculationShaderDispatchParams Params,
@@ -79,11 +78,13 @@ public:
 	// Execute the actual load
 	virtual void Activate() override {
 		// Create a dispatch parameters struct and fill it the input array with our args
-		FLuminanceCalculationShaderDispatchParams Params(1, 1, 1);
-		Params.RenderTarget = RenderTarget;
+		
+		if (!RenderTarget) return;
+		FLuminanceCalculationShaderDispatchParams Params(1, 1, 1, RenderTarget);
 
 		// Dispatch the compute shader and wait until it completes
-		FLuminanceCalculationShaderInterface::Dispatch(Params, [this](int OutputVal) {
+		FLuminanceCalculationShaderInterface::Dispatch(Params, [this](int OutputVal) 
+		{
 			this->Completed.Broadcast(OutputVal);
 		});
 	}
@@ -91,9 +92,10 @@ public:
 	
 	
 	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", Category = "ComputeShader", WorldContext = "WorldContextObject"))
-	static ULuminanceCalculationShaderLibrary_AsyncExecution* ExecuteBaseComputeShader(UObject* WorldContextObject, UTextureRenderTarget2D* RenderTarget) {
+	static ULuminanceCalculationShaderLibrary_AsyncExecution* ExecuteBaseComputeShader(UObject* WorldContextObject, UTextureRenderTarget2D* RenderTarget)
+	{
 		ULuminanceCalculationShaderLibrary_AsyncExecution* Action = NewObject<ULuminanceCalculationShaderLibrary_AsyncExecution>();
-		Action->RenderTarget;
+		Action->RenderTarget = RenderTarget;
 		Action->RegisterWithGameInstance(WorldContextObject);
 
 		return Action;

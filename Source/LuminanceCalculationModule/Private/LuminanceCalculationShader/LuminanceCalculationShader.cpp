@@ -55,6 +55,7 @@ public:
 
 		
 		//SHADER_PARAMETER_RDG_BUFFER_SRV(Buffer<int>, Input)
+		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, InputTexture)
 		SHADER_PARAMETER_RDG_BUFFER_UAV(RWBuffer<int>, Output)
 		
 
@@ -95,6 +96,57 @@ public:
 private:
 };
 
+
+FRDGTextureRef FLuminanceCalculationShaderInterface::RegisterRenderTarget(UTextureRenderTarget2D* RenderTarget, FRDGBuilder& GraphBuilder, string VariableName)
+{
+
+	if (!RenderTarget)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("RenderTarget is null."));
+
+	}
+	const FTextureRenderTargetResource* RTResource = RenderTarget->GetRenderTargetResource();
+	if (!RTResource)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("RTResource is null."));
+
+	}
+
+	FRHITexture* TextureRHI = RTResource->GetRenderTargetTexture();
+	if (!TextureRHI)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("TextureRHI is null."));
+
+	}
+
+	FSceneRenderTargetItem RenderTargetItem;
+	RenderTargetItem.TargetableTexture = TextureRHI;
+	RenderTargetItem.ShaderResourceTexture = TextureRHI;
+
+	FPooledRenderTargetDesc RenderTargetDesc = FPooledRenderTargetDesc::Create2DDesc(
+		RTResource->GetSizeXY(),        // Texture resolution 
+		TextureRHI->GetFormat(),             // Pixel format 
+		FClearValueBinding::Black,                // Initial clear value
+		TexCreate_None,
+		TexCreate_RenderTargetable |              // Can be used as a render target
+		TexCreate_ShaderResource |                // Can be sampled in shaders
+		TexCreate_UAV,                            // Can be written via UAV (compute shaders)
+		false
+	);
+	TRefCountPtr<IPooledRenderTarget> PooledRenderTarget;
+	GRenderTargetPool.CreateUntrackedElement(
+		RenderTargetDesc,
+		PooledRenderTarget,
+		RenderTargetItem         // Links to existing RenderTargetRHI
+	);
+	FString tmp = UTF8_TO_TCHAR(VariableName.c_str());
+	FRDGTextureRef RDGInputTexture =
+		GraphBuilder.RegisterExternalTexture(PooledRenderTarget, *tmp);
+
+	return RDGInputTexture;
+
+}
+
 // This will tell the engine to create the shader and where the shader entry point is.
 //                            ShaderType                            ShaderPath                     Shader function name    Type
 IMPLEMENT_GLOBAL_SHADER(FLuminanceCalculationShader, "/LuminanceCalculationModuleShaders/LuminanceCalculationShader/LuminanceCalculationShader.usf", "LuminanceCalculationShader", SF_Compute);
@@ -122,21 +174,31 @@ void FLuminanceCalculationShaderInterface::DispatchRenderThread(FRHICommandListI
 			FLuminanceCalculationShader::FParameters* PassParameters = GraphBuilder.AllocParameters<FLuminanceCalculationShader::FParameters>();
 
 			
-			const void* RawData = (void*)Params.Input;
-			int NumInputs = 2;
-			int InputSize = sizeof(int);
-			FRDGBufferRef InputBuffer = CreateUploadBuffer(GraphBuilder, TEXT("InputBuffer"), InputSize, NumInputs, RawData, InputSize * NumInputs);
+			//const void* RawData = (void*)Params.Input;
+			//int NumInputs = 2;
+			//int InputSize = sizeof(int);
+			//FRDGBufferRef InputBuffer = CreateUploadBuffer(GraphBuilder, TEXT("InputBuffer"), InputSize, NumInputs, RawData, InputSize * NumInputs);
 
-			PassParameters->Input = GraphBuilder.CreateSRV(FRDGBufferSRVDesc(InputBuffer, PF_R32_SINT));
+			//PassParameters->Input = GraphBuilder.CreateSRV(FRDGBufferSRVDesc(InputBuffer, PF_R32_SINT));
+
+			// RenderTarget->RTResource->TextureRHI->RenderPoolTarget->FRDGTextereRef
+
+			FRDGTextureRef RenderTargetRDGRef = RegisterRenderTarget(Params.RenderTarget, GraphBuilder, "InputTexture");
 
 			FRDGBufferRef OutputBuffer = GraphBuilder.CreateBuffer(
 				FRDGBufferDesc::CreateBufferDesc(sizeof(int32), 1),
 				TEXT("OutputBuffer"));
 
 			PassParameters->Output = GraphBuilder.CreateUAV(FRDGBufferUAVDesc(OutputBuffer, PF_R32_SINT));
-			
+			PassParameters->InputTexture = RenderTargetRDGRef;
 
-			auto GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(Params.X, Params.Y, Params.Z), FComputeShaderUtils::kGolden2DGroupSize);
+			//auto GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(Params.X, Params.Y, Params.Z), FComputeShaderUtils::kGolden2DGroupSize);
+			FIntPoint TextureSize = RenderTargetRDGRef->Desc.Extent;
+			FIntVector GroupCount(
+				FMath::DivideAndRoundUp(TextureSize.X, 32),
+				FMath::DivideAndRoundUp(TextureSize.Y, 32),
+				1
+			);
 			GraphBuilder.AddPass(
 				RDG_EVENT_NAME("ExecuteLuminanceCalculationShader"),
 				PassParameters,

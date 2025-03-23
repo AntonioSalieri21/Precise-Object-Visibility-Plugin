@@ -1,13 +1,64 @@
 #include "/Engine/Public/Platform.ush"
 
-Buffer<int> Input;
+Texture2D<float4> InputTexture;
 RWBuffer<int> Output;
 
-[numthreads(THREADS_X, THREADS_Y, THREADS_Z)]
-void LuminanceCalculationShader(
-	uint3 DispatchThreadId : SV_DispatchThreadID,
-	uint GroupIndex : SV_GroupIndex )
+float sRGBtoLin(float color)
 {
-	// Outputs one number
-	Output[0] = Input[0] * Input[1];
+    if(color <= 0.04045)
+    {
+        return color / 12.92;
+    }
+    else
+    {
+        return pow( ( (color + 0.055) / 1.055), 2.4);
+    }
+}
+
+float LuminanceToBrightness(float color)
+{
+    if(color <= 0.008856)
+    {
+        return color * 903.3;
+    }
+    else
+    {
+        return pow(color, (1.0 / 3.0)) * 116 - 16;
+    }
+}
+
+float GetBrightness(float3 color)
+{
+    // Weighting linear colors to obtain luminance
+    float luminance = (0.2126 * sRGBtoLin(color.r) + 0.7152 * sRGBtoLin(color.g) + 0.0722 * sRGBtoLin(color.b)); 
+    // Calculating perceived brightness
+    float brightness = LuminanceToBrightness(luminance);
+    
+    
+    return brightness;
+}
+
+[numthreads(32, 32, 1)]
+void LuminanceCalculationShader(uint3 DispatchThreadId : SV_DispatchThreadID, uint GroupIndex : SV_GroupIndex)
+{
+    uint width, height;
+    InputTexture.GetDimensions(width, height);
+
+    if (DispatchThreadId.x >= width || DispatchThreadId.y >= height)
+        return;
+
+    float4 colorData = InputTexture.Load(int3(DispatchThreadId.xy, 0));
+    float3 color = colorData.rgb;
+    
+    // To avoid dark pixels
+    float threshold = 0.01;
+    bool isNotDark = (color.r > threshold && color.g > threshold && color.b > threshold);
+
+    if(isNotDark)
+    {
+        float brightness = GetBrightness(color);
+        InterlockedAdd(Output[0], floor(brightness));
+    }
+
+
 }

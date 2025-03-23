@@ -92,7 +92,7 @@ public:
 	
 	
 	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", Category = "ComputeShader", WorldContext = "WorldContextObject"))
-	static ULuminanceCalculationShaderLibrary_AsyncExecution* ExecuteBaseComputeShader(UObject* WorldContextObject, UTextureRenderTarget2D* RenderTarget)
+	static ULuminanceCalculationShaderLibrary_AsyncExecution* BrightnessCalculation(UObject* WorldContextObject, UTextureRenderTarget2D* RenderTarget)
 	{
 		ULuminanceCalculationShaderLibrary_AsyncExecution* Action = NewObject<ULuminanceCalculationShaderLibrary_AsyncExecution>();
 		Action->RenderTarget = RenderTarget;

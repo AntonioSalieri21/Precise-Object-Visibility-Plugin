@@ -24,6 +24,11 @@
 			"Name": "SimpleTestModule",
 			"Type": "Runtime",
 			"LoadingPhase": "PostConfigInit"
+		},
+		{
+			"Name": "LuminanceCalculationModule",
+			"Type": "Runtime",
+			"LoadingPhase": "PostConfigInit"
 		}
 	]
 }

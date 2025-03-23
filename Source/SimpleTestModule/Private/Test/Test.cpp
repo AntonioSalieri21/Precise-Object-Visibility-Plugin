@@ -61,7 +61,8 @@ public:
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, InputTexture)
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, CameraTexture)
 		SHADER_PARAMETER_RDG_BUFFER_UAV(RWBuffer<int>, Output)
-		SHADER_PARAMETER_RDG_BUFFER_UAV(RWBuffer<float>, Luminance)
+		SHADER_PARAMETER_RDG_BUFFER_UAV(RWBuffer<int>, Luminance)
+		//SHADER_PARAMETER_RDG_BUFFER_UAV(FVector, Luminance)
 		
 
 	END_SHADER_PARAMETER_STRUCT()
@@ -212,13 +213,15 @@ void FTestInterface::DispatchRenderThread(FRHICommandListImmediate& RHICmdList, 
 				TEXT("OutputBuffer"));
 
 			FRDGBufferRef LuminanceBuffer = GraphBuilder.CreateBuffer(
-				FRDGBufferDesc::CreateBufferDesc(sizeof(float), 2),
+				FRDGBufferDesc::CreateBufferDesc(sizeof(int32), 2),
 				TEXT("LuminanceBuffer"));
 
+
 			PassParameters->Output = GraphBuilder.CreateUAV(FRDGBufferUAVDesc(OutputBuffer, PF_R32_SINT));
-			PassParameters->Luminance = GraphBuilder.CreateUAV(FRDGBufferUAVDesc(LuminanceBuffer, PF_R32_FLOAT));
+			PassParameters->Luminance = GraphBuilder.CreateUAV(FRDGBufferUAVDesc(LuminanceBuffer, PF_R32_SINT));
 			AddClearUAVPass(GraphBuilder, PassParameters->Output, 0);
-			AddClearUAVPass(GraphBuilder, PassParameters->Luminance, 15.0f);
+			AddClearUAVPass(GraphBuilder, PassParameters->Luminance, 13);
+
 			//auto GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(Params.X, Params.Y, Params.Z), FComputeShaderUtils::kGolden2DGroupSize);
 			FIntPoint TextureSize = InputTextureRef->Desc.Extent;
 			FIntVector GroupCount(
@@ -230,7 +233,7 @@ void FTestInterface::DispatchRenderThread(FRHICommandListImmediate& RHICmdList, 
 			GraphBuilder.AddPass(
 				RDG_EVENT_NAME("ExecuteTest"),
 				PassParameters,
-				ERDGPassFlags::AsyncCompute,
+				ERDGPassFlags::Compute,
 				[&PassParameters, ComputeShader, GroupCount](FRHIComputeCommandList& RHICmdList)
 			{
 				FComputeShaderUtils::Dispatch(RHICmdList, ComputeShader, *PassParameters, GroupCount);
@@ -245,14 +248,15 @@ void FTestInterface::DispatchRenderThread(FRHICommandListImmediate& RHICmdList, 
 			auto RunnerFunc = [GPUOutputBufferReadback, GPULuminanceBufferReadback, AsyncCallback](auto&& RunnerFunc) -> void {
 				if (GPUOutputBufferReadback->IsReady() && GPULuminanceBufferReadback->IsReady()) {
 					
-					int32* Buffer = (int32*)GPUOutputBufferReadback->Lock(1);
+					int32* Buffer = (int32*)GPUOutputBufferReadback->Lock(sizeof(int32));
 					int32 ObjectSize = Buffer[0];
 					
 					GPUOutputBufferReadback->Unlock();
 
-					float* LumBuffer = (float*)GPULuminanceBufferReadback->Lock(sizeof(float)*2);
-					float ObjectLum = LumBuffer[0];
-					float OtherLum = LumBuffer[1];
+					int32* LumBuffer = (int32*)(GPULuminanceBufferReadback->Lock(8));
+					UE_LOG(LogTemp, Log, TEXT("Luminance Buffer: %d, %d"), LumBuffer[0], LumBuffer[1]);
+					int32 ObjectLum = LumBuffer[0];
+					int32 OtherLum = LumBuffer[1];
 					GPULuminanceBufferReadback->Unlock();
 
 					AsyncTask(ENamedThreads::GameThread, [AsyncCallback, ObjectSize, ObjectLum, OtherLum]() {

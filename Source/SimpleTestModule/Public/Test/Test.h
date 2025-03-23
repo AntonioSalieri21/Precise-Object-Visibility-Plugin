@@ -22,6 +22,8 @@ struct SIMPLETESTMODULE_API FTestDispatchParams
 	UTextureRenderTarget2D* InputTexture; // Must be a RenderTarget for compute shaders
 	UTextureRenderTarget2D* CameraTexture;
 	int Output; 
+	int ObjectLuminance;
+	int OtherLuminance;
 
 	FTestDispatchParams(int x, int y, int z, UTextureRenderTarget2D* InTexture, UTextureRenderTarget2D* CamTexture)
 		: X(x), Y(y), Z(z), InputTexture(InTexture), CameraTexture(CamTexture), Output(1) {
@@ -88,7 +90,7 @@ public:
 		// Dispatch compute shader
 		FTestDispatchParams Params(1, 1, 1, InputTexture, CameraTexture);
 		FTestInterface::Dispatch(Params, [this](int OutputVal, float ObjectLiminance, float OtherLuminance) {
-			this->Completed.Broadcast(OutputVal, ObjectLiminance, 1.0);
+			this->Completed.Broadcast(OutputVal, ObjectLiminance, OtherLuminance);
 			});
 	}
 

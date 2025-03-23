@@ -19,6 +19,11 @@
 			"Name": "VisibilityToneCalculation",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "SimpleTestModule",
+			"Type": "Runtime",
+			"LoadingPhase": "PostConfigInit"
 		}
 	]
 }

@@ -3,7 +3,7 @@
 Texture2D<float4> InputTexture;
 Texture2D<float4> CameraTexture;
 RWBuffer<int> Output;
-RWBuffer<float> Luminance;
+RWBuffer<int> Luminance;
 
 [numthreads(32, 32, 1)]
 void Test(uint3 DispatchThreadId : SV_DispatchThreadID, uint GroupIndex : SV_GroupIndex)
@@ -25,4 +25,5 @@ void Test(uint3 DispatchThreadId : SV_DispatchThreadID, uint GroupIndex : SV_Gro
         InterlockedAdd(Output[0], 1);
 
     }
+
 }
